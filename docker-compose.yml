@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-loja}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-loja}
+      POSTGRES_DB: ${POSTGRES_DB:-loja_veloz}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-loja}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - loja-veloz
+
+  estoque:
+    build: ./services/estoque
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-loja}:${POSTGRES_PASSWORD:-loja}@postgres:5432/${POSTGRES_DB:-loja_veloz}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - loja-veloz
+
+  pagamentos:
+    build: ./services/pagamentos
+    restart: unless-stopped
+    networks:
+      - loja-veloz
+
+  pedidos:
+    build: ./services/pedidos
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-loja}:${POSTGRES_PASSWORD:-loja}@postgres:5432/${POSTGRES_DB:-loja_veloz}
+      ESTOQUE_URL: http://estoque:8000
+      PAGAMENTOS_URL: http://pagamentos:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      estoque:
+        condition: service_started
+      pagamentos:
+        condition: service_started
+    networks:
+      - loja-veloz
+
+  gateway:
+    build: ./services/gateway
+    restart: unless-stopped
+    environment:
+      PEDIDOS_URL: http://pedidos:8000
+      ESTOQUE_URL: http://estoque:8000
+      PAGAMENTOS_URL: http://pagamentos:8000
+    ports:
+      - "8080:8000"
+    depends_on:
+      - pedidos
+      - estoque
+      - pagamentos
+    networks:
+      - loja-veloz
+
+volumes:
+  pgdata:
+
+networks:
+  loja-veloz:
+    driver: bridge
