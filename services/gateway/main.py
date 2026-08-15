@@ -4,7 +4,10 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
+from observabilidade import configurar
+
 app = FastAPI(title="API Gateway")
+configurar(app, "gateway")
 
 ROTAS = {
     "pedidos": os.getenv("PEDIDOS_URL", "http://pedidos:8000"),

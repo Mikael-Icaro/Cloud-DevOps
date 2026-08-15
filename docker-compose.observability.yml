@@ -1,0 +1,65 @@
+# Camada de observabilidade, separada do compose principal pra nao pesar
+# quem so quer subir a aplicacao. Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d --build
+services:
+  jaeger:
+    image: docker.io/jaegertracing/all-in-one:latest
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+    networks:
+      - loja-veloz
+
+  prometheus:
+    image: docker.io/prom/prometheus:v2.55.1
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro,Z
+    ports:
+      - "9090:9090"
+    networks:
+      - loja-veloz
+
+  grafana:
+    image: docker.io/grafana/grafana:11.3.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./monitoring/grafana-provisioning:/etc/grafana/provisioning:ro,Z
+    ports:
+      - "3000:3000"
+    networks:
+      - loja-veloz
+
+  gateway:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+    depends_on:
+      jaeger:
+        condition: service_started
+
+  pedidos:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+    depends_on:
+      jaeger:
+        condition: service_started
+
+  estoque:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+    depends_on:
+      jaeger:
+        condition: service_started
+
+  pagamentos:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+    depends_on:
+      jaeger:
+        condition: service_started

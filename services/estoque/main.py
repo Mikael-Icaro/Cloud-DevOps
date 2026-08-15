@@ -6,9 +6,12 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 
+from observabilidade import configurar
+
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://loja:loja@postgres:5432/loja_veloz")
 
 app = FastAPI(title="Estoque")
+configurar(app, "estoque")
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 

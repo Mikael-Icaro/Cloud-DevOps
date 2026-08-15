@@ -9,11 +9,14 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 
+from observabilidade import configurar
+
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://loja:loja@postgres:5432/loja_veloz")
 ESTOQUE_URL = os.getenv("ESTOQUE_URL", "http://estoque:8000")
 PAGAMENTOS_URL = os.getenv("PAGAMENTOS_URL", "http://pagamentos:8000")
 
 app = FastAPI(title="Pedidos")
+configurar(app, "pedidos")
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 

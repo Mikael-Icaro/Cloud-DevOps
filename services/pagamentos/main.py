@@ -4,7 +4,10 @@ import uuid
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from observabilidade import configurar
+
 app = FastAPI(title="Pagamentos")
+configurar(app, "pagamentos")
 
 # Simula uma integradora externa (ex: Stripe, PagSeguro). Taxa de recusa
 # fixa em 10% so pra dar sinal de vida pro fluxo de erro no gateway/pedidos.

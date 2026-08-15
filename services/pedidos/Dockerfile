@@ -9,7 +9,7 @@ FROM base
 RUN useradd --create-home --uid 10001 appuser
 WORKDIR /app
 COPY --from=deps /root/.local /home/appuser/.local
-COPY main.py .
+COPY main.py observabilidade.py .
 RUN chown -R appuser:appuser /app
 USER appuser
 ENV PATH=/home/appuser/.local/bin:$PATH
