@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  namespace: loja-veloz
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: loja-veloz
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      securityContext:
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      # A imagem oficial do Postgres exige que o diretorio de dados seja
+      # dono do usuario postgres (999). Volumes novos do provisionador vem
+      # com root:root, entao esse initContainer ajusta a posse uma vez, na
+      # primeira inicializacao -- e o unico lugar do projeto que roda como
+      # root, por isso o namespace usa Pod Security "baseline" em vez de
+      # "restricted" (ver relatorio tecnico).
+      initContainers:
+        - name: ajustar-permissoes
+          image: docker.io/library/postgres:16-alpine
+          command: ["sh", "-c", "chown -R 999:999 /var/lib/postgresql/data"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+      containers:
+        - name: postgres
+          image: docker.io/library/postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - configMapRef:
+                name: loja-veloz-config
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: loja-veloz-secrets
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "loja"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "loja"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: loja-veloz
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432

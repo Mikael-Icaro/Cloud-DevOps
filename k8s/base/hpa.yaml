@@ -1,0 +1,45 @@
+# HPA baseado em CPU. Requer metrics-server no cluster:
+#   kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+# Gateway e Pedidos escalam porque concentram o trafego de entrada e a
+# orquestracao do fluxo de compra -- sao os pontos que mais sentem picos
+# de campanha promocional. Estoque e Pagamentos ficam fixos em 2 réplicas
+# no MVP; entram no HPA se o perfil de trafego mostrar necessidade.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway
+  namespace: loja-veloz
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gateway
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: pedidos
+  namespace: loja-veloz
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pedidos
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

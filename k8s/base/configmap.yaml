@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loja-veloz-config
+  namespace: loja-veloz
+data:
+  POSTGRES_DB: "loja_veloz"
+  POSTGRES_USER: "loja"
+  ESTOQUE_URL: "http://estoque:8000"
+  PAGAMENTOS_URL: "http://pagamentos:8000"
+  PEDIDOS_URL: "http://pedidos:8000"

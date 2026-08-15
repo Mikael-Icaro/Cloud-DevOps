@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pagamentos
+  namespace: loja-veloz
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pagamentos
+  template:
+    metadata:
+      labels:
+        app: pagamentos
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: pagamentos
+          image: ghcr.io/mikael-icaro/loja-veloz-pagamentos:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pagamentos
+  namespace: loja-veloz
+spec:
+  selector:
+    app: pagamentos
+  ports:
+    - port: 8000
+      targetPort: 8000

@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pedidos
+  namespace: loja-veloz
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pedidos
+  template:
+    metadata:
+      labels:
+        app: pedidos
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: pedidos
+          image: ghcr.io/mikael-icaro/loja-veloz-pedidos:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: loja-veloz-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: loja-veloz-secrets
+                  key: DATABASE_URL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pedidos
+  namespace: loja-veloz
+spec:
+  selector:
+    app: pedidos
+  ports:
+    - port: 8000
+      targetPort: 8000
