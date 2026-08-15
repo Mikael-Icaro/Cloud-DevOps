@@ -71,6 +71,47 @@ Cada serviço tem `/healthz` (liveness) e `/readyz` (readiness).
 
 O evento `PedidoCriado` é gravado hoje numa tabela `eventos` no próprio Postgres, não num broker dedicado (RabbitMQ/Kafka). Pra um único consumidor (o próprio serviço de Pedidos, no MVP), um broker adicionaria complexidade operacional sem ganho real. Fica documentado como próximo passo assim que surgir um segundo consumidor do evento (ex.: um serviço de notificação por e-mail).
 
-## Kubernetes, CI/CD, observabilidade, Terraform
+## Observabilidade
 
-Ver `k8s/`, `.github/workflows/`, `terraform/` e `docs/relatorio-tecnico.md` para o restante da entrega.
+Métricas via Prometheus, tracing distribuído via OpenTelemetry exportando pro Jaeger, dashboards no Grafana. Fica numa camada separada do compose principal:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build -d
+```
+
+- Jaeger UI: http://localhost:16686 (escolha um serviço, ex. `gateway`, e veja o trace completo atravessando pedidos, estoque e pagamentos, incluindo as queries no Postgres)
+- Prometheus: http://localhost:9090/targets (os 4 serviços devem aparecer `UP`)
+- Grafana: http://localhost:3000 (acesso anônimo habilitado como Viewer; login `admin`/`admin` pra editar; datasource do Prometheus já vem provisionado)
+
+Cada serviço expõe `/metrics` em formato Prometheus (latência, contagem de requisições por rota e status). Logs continuam saindo por stdout (`docker compose logs -f <servico>`), seguindo a prática padrão de containers — não subimos um agregador de logs dedicado (Loki/ELK) nesta fase por ser redundante com o volume de tráfego do MVP; fica documentado como próximo passo no relatório técnico.
+
+## Kubernetes
+
+Manifests em `k8s/base/`. Testado num cluster kind local com Podman:
+
+```bash
+export KIND_EXPERIMENTAL_PROVIDER=podman
+kind create cluster --name loja-veloz
+
+for s in estoque pagamentos pedidos gateway; do
+  docker build -t ghcr.io/mikael-icaro/loja-veloz-$s:latest ./services/$s
+  kind load docker-image ghcr.io/mikael-icaro/loja-veloz-$s:latest --name loja-veloz
+done
+
+kubectl apply -f k8s/base/namespace.yaml
+kubectl apply -f k8s/base/configmap.yaml
+kubectl create secret generic loja-veloz-secrets --namespace loja-veloz \
+  --from-literal=POSTGRES_PASSWORD='troque_essa_senha' \
+  --from-literal=DATABASE_URL='postgresql://loja:troque_essa_senha@postgres:5432/loja_veloz'
+kubectl apply -f k8s/base/
+
+kubectl port-forward -n loja-veloz svc/gateway 8080:8000
+```
+
+## CI/CD
+
+`.github/workflows/ci-cd.yml`: lint (ruff) + testes (pytest, com Postgres de serviço) em cada PR/push, depois build e publicação das 4 imagens no GHCR e scan de vulnerabilidades (Trivy) quando o push é em `main`.
+
+## Terraform / OpenTofu
+
+Esqueleto em `terraform/` (namespace + resource quota do Kubernetes). Ver `docs/relatorio-tecnico.md` para a justificativa completa das decisões arquiteturais.
