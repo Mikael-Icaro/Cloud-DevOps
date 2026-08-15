@@ -26,12 +26,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    ports:
+      - "8002:8000"  # so pra acessar /docs direto em dev, nao existe em producao
     networks:
       - loja-veloz
 
   pagamentos:
     build: ./services/pagamentos
     restart: unless-stopped
+    ports:
+      - "8003:8000"  # so pra acessar /docs direto em dev, nao existe em producao
     networks:
       - loja-veloz
 
@@ -49,6 +53,8 @@ services:
         condition: service_started
       pagamentos:
         condition: service_started
+    ports:
+      - "8001:8000"  # so pra acessar /docs direto em dev, nao existe em producao
     networks:
       - loja-veloz
 
