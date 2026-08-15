@@ -2,6 +2,8 @@
 
 Plataforma de pedidos em microsserviços da Loja Veloz, migrando de um ambiente local em Docker Compose para produção em Kubernetes, com pipeline de CI/CD e observabilidade.
 
+Vídeo pitch: https://youtu.be/LOQPveUc75A
+
 ## Arquitetura
 
 ```
